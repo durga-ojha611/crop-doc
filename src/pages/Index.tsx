@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
-import { Camera, Leaf, Zap, Wifi, WifiOff } from 'lucide-react';
+import { Camera, Leaf, Zap, Wifi, WifiOff, ArrowRight, Info } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const Index = () => {
@@ -148,6 +148,29 @@ const Index = () => {
                 </div>
               </motion.div>
             </div>
+
+            {/* Info Link */}
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.7 }}
+              className="mt-6 flex justify-center"
+            >
+              <button 
+                onClick={() => navigate('/info')}
+                className="group relative flex items-center justify-between w-full max-w-sm mx-auto p-1.5 pr-5 rounded-full bg-card border border-border shadow-sm hover:shadow-md hover:border-primary/50 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    <Info className="w-5 h-5" />
+                  </div>
+                  <span className="font-semibold text-sm">For more guidance, prefer this</span>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-secondary/50 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
+              </button>
+            </motion.div>
           </motion.div>
 
           {/* How It Works Section */}

@@ -1,28 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
-import { generateChatResponse } from '@/lib/gemini';
-import { Mic, Send, Bot, User, Sparkles } from 'lucide-react';
+import { useChat } from '@/hooks/useChat';
+import { Mic, Send, Bot, User, Sparkles, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface Message {
-    id: number;
-    role: 'user' | 'ai';
-    text: string;
-}
-
 const ChatbotPage = () => {
+    const { messages, isTyping, sendMessage, setMessages } = useChat();
     const [inputText, setInputText] = useState('');
     const [isListening, setIsListening] = useState(false);
-    const [isTyping, setIsTyping] = useState(false);
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: 1,
-            role: 'ai',
-            text: "Hello! I'm your AI Agronomist. How can I help you with your crops today?"
+
+    // Initial message
+    useEffect(() => {
+        if (messages.length === 0) {
+            setMessages([{
+                role: 'ai',
+                content: "Hello! I'm your AI Agronomist. How can I help you with your crops today?"
+            }]);
         }
-    ]);
+    }, [messages.length, setMessages]);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -75,58 +72,22 @@ const ChatbotPage = () => {
     const handleSend = async () => {
         if (!inputText.trim()) return;
 
-        const userMsg: Message = { id: Date.now(), role: 'user', text: inputText };
-        setMessages((prev) => [...prev, userMsg]);
         const currentQuery = inputText;
         setInputText('');
-        setIsTyping(true);
 
-        try {
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-
-            // We pass a generic context since we don't have a specific scan result
-            const reply = await generateChatResponse(
-                {
-                    disease: "General Inquiry",
-                    crop: "Various Crops",
-                    history: messages.map(m => ({ role: m.role, text: m.text }))
-                },
-                currentQuery,
-                apiKey
-            );
-
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: Date.now() + 1,
-                    role: 'ai',
-                    text: reply
-                }
-            ]);
-        } catch (err) {
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: Date.now() + 1,
-                    role: 'ai',
-                    text: "Sorry, I'm having trouble connecting to the server. Please try again later."
-                }
-            ]);
-        } finally {
-            setIsTyping(false);
-        }
+        await sendMessage(currentQuery);
     };
 
     return (
         <AppLayout>
-            <div className="flex flex-col h-[calc(100vh-8rem)]">
+            <div className="flex flex-col h-[calc(100vh-8rem)] relative">
                 {/* Chat Messages Area */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-20">
-                    {messages.map((msg) => (
+                    {messages.map((msg, idx) => (
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            key={msg.id}
+                            key={idx}
                             className={cn(
                                 "flex gap-3",
                                 msg.role === 'user' ? 'justify-end' : 'justify-start'
@@ -144,7 +105,15 @@ const ChatbotPage = () => {
                                     ? 'bg-green-600 text-white rounded-br-none font-medium'
                                     : 'bg-card border border-border text-foreground rounded-bl-none'
                             )}>
-                                {msg.text}
+                                <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+                                    {msg.content}
+                                </div>
+                                {msg.role === 'ai' && msg.retrievedContext && msg.retrievedContext.scanIds && msg.retrievedContext.scanIds.length > 0 && (
+                                    <div className="mt-2 pt-2 border-t border-border/50 text-xs text-muted-foreground flex items-center gap-1.5">
+                                        <Search className="w-3 h-3" />
+                                        <span>Based on your recent scan history.</span>
+                                    </div>
+                                )}
                             </div>
 
                             {msg.role === 'user' && (
@@ -175,7 +144,7 @@ const ChatbotPage = () => {
                 </div>
 
                 {/* Input Area - Fixed at bottom */}
-                <div className="absolute bottom-20 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t border-border">
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t border-border">
                     <div className="max-w-[430px] mx-auto flex items-center gap-2 bg-muted/50 p-2 rounded-full border border-border focus-within:border-green-500/50 transition-all shadow-inner">
                         <input
                             type="text"
@@ -201,7 +170,7 @@ const ChatbotPage = () => {
                         <Button
                             size="icon"
                             onClick={handleSend}
-                            disabled={!inputText.trim()}
+                            disabled={!inputText.trim() || isTyping}
                             className="rounded-full bg-green-600 hover:bg-green-500 text-white shadow-lg disabled:opacity-50"
                         >
                             <Send size={18} />

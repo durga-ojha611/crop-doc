@@ -131,8 +131,8 @@ const CommunityPage = () => {
                     <PostCard
                       post={post}
                       onLike={(id, hasLiked) => toggleLike({ postId: id, hasLiked })}
-                      onDelete={user?.uid === post.user_id ? deletePost : undefined}
-                      onEdit={user?.uid === post.user_id ? editPost : undefined}
+                      onDelete={user?.id === post.user_id ? deletePost : undefined}
+                      onEdit={user?.id === post.user_id ? editPost : undefined}
                       isDeleting={isDeleting}
                     />
                   </motion.div>

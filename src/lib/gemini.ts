@@ -64,8 +64,10 @@ export const analyzeWithGemini = async (
     3. If HEALTHY: output "Healthy".
     4. If DISEASED: Identify the specific disease name.
     5. Provide detailed remedies (Chemical and Organic) and Prevention steps.
-    6. Return the confidence level (0.0 to 1.0).
-    7. If NO PLANT is detected or image is unclear, set "isPlant" to false.
+    6. Return the confidence level (0.0 to 1.0) of your primary diagnosis.
+    7. If you are unsure (confidence < 0.9), provide up to 2 other possible diagnosisCandidates with their own confidence scores.
+    8. Provide a step-by-step actionable treatmentPlan.
+    9. If NO PLANT is detected or image is unclear, set "isPlant" to false.
 
     Return ONLY valid JSON in this exact format:
     {
@@ -73,6 +75,12 @@ export const analyzeWithGemini = async (
       "name": "Plant Name",
       "disease": "Disease Name" (or "Healthy"),
       "confidence": number,
+      "diagnosisCandidates": [
+        { "diseaseName": "Other possible disease", "confidence": number }
+      ],
+      "treatmentPlan": [
+        { "step": "Step 1 Title", "description": "Detailed instruction in ${languageInstruction}" }
+      ],
       "chemical": "detailed chemical remedy in ${languageInstruction} using bullet points with emojis...",
       "organic": "detailed organic remedy in ${languageInstruction} using bullet points with emojis...",
       "prevention": "prevention tips in ${languageInstruction} using bullet points with emojis..."
@@ -120,7 +128,9 @@ export const analyzeWithGemini = async (
         chemicalSolution: parsedContent.chemical || "Consult a local expert.",
         organicSolution: parsedContent.organic || "Remove infected parts.",
         prevention: parsedContent.prevention || "Maintain good hygiene."
-      }
+      },
+      diagnosisCandidates: parsedContent.diagnosisCandidates || [],
+      treatmentPlan: parsedContent.treatmentPlan || []
     };
 
   } catch (error: any) {
@@ -141,44 +151,4 @@ export const analyzeWithGemini = async (
   }
 };
 
-export const generateChatResponse = async (
-  context: { disease: string; crop: string; history: { role: 'user' | 'ai'; text: string }[] },
-  query: string,
-  apiKey: string
-): Promise<string> => {
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    // Construct history for the model
-    const chat = model.startChat({
-      history: [
-        {
-          role: "user",
-          parts: [{
-            text: `System Context: The user is an Indian farmer. They have scanned a ${context.crop} plant which has been diagnosed with ${context.disease}. 
-          You are an expert agronomist assistant. 
-          Respond to their questions specifically about this situation. 
-          Keep answers short (under 50 words), practical, and encouraging. 
-          Use emojis.` }]
-        },
-        {
-          role: "model",
-          parts: [{ text: `Namaste! I am your farm assistant. I see your ${context.crop} has ${context.disease}. How can I help you manage this?` }]
-        },
-        ...context.history.map(msg => ({
-          role: msg.role === 'user' ? 'user' : 'model',
-          parts: [{ text: msg.text }]
-        }))
-      ]
-    });
-
-    const result = await chat.sendMessage(query);
-    const response = await result.response;
-    return response.text();
-
-  } catch (error: any) {
-    console.error("Gemini Chat Error:", error);
-    return "I'm having trouble connecting right now. Please check your internet or try again.";
-  }
-};

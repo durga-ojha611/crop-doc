@@ -53,7 +53,13 @@ const ScanCard = ({ scan, onDelete }: { scan: Scan; onDelete: (id: string) => vo
               <Calendar className="w-3 h-3" />
               {format(new Date(scan.created_at), 'MMM d, yyyy')}
             </span>
-            {scan.geo_lat && scan.geo_long && (
+            {scan.plotId && typeof scan.plotId === 'object' && scan.plotId.name && (
+              <span className="flex items-center gap-1 text-primary/80 font-medium bg-primary/5 px-2 rounded-full">
+                <MapPin className="w-3 h-3" />
+                {scan.plotId.name}
+              </span>
+            )}
+            {scan.geo_lat && scan.geo_long && (!scan.plotId) && (
               <span className="flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
                 Located

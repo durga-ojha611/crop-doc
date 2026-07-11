@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { Mic, Send, X, Bot, Sparkles, GripHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { generateChatResponse } from '@/lib/gemini';
-
+import { useChat } from '@/hooks/useChat';
 interface AssistantProps {
     diseaseName: string;
     cropName: string;
@@ -19,14 +18,21 @@ const CropAssistant: React.FC<AssistantProps> = ({ diseaseName, cropName }) => {
     const [isExpanded, setIsExpanded] = useState(true);
     const [inputText, setInputText] = useState('');
     const [isListening, setIsListening] = useState(false);
-    const [isTyping, setIsTyping] = useState(false);
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: 1,
-            role: 'ai',
-            text: `I see ${diseaseName} on your ${cropName}. Is there anything else unusual happening with the plant?`
+    
+    // Instead of local state, use the global chat hook but start a fresh conversation 
+    // implicitly or we can just use the local state + backend API directly, 
+    // but the hook is easier. We will use the hook and manually set the initial message.
+    const { messages, isTyping, sendMessage, setMessages } = useChat();
+
+    // Set initial message if empty
+    useEffect(() => {
+        if (messages.length === 0) {
+            setMessages([{
+                role: 'ai',
+                content: `I see ${diseaseName} on your ${cropName}. Is there anything else unusual happening with the plant?`
+            }]);
         }
-    ]);
+    }, [messages.length, diseaseName, cropName, setMessages]);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -34,7 +40,7 @@ const CropAssistant: React.FC<AssistantProps> = ({ diseaseName, cropName }) => {
         if (isExpanded) {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [messages, isExpanded]);
+    }, [messages, isExpanded, isTyping]);
 
     // Voice Recognition Logic
     useEffect(() => {
@@ -80,44 +86,12 @@ const CropAssistant: React.FC<AssistantProps> = ({ diseaseName, cropName }) => {
     const handleSend = async () => {
         if (!inputText.trim()) return;
 
-        const userMsg: Message = { id: Date.now(), role: 'user', text: inputText };
-        setMessages((prev) => [...prev, userMsg]);
         const currentQuery = inputText;
         setInputText('');
-        setIsTyping(true);
-
-        try {
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-            const reply = await generateChatResponse(
-                {
-                    disease: diseaseName,
-                    crop: cropName,
-                    history: messages.map(m => ({ role: m.role, text: m.text }))
-                },
-                currentQuery,
-                apiKey
-            );
-
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: Date.now() + 1,
-                    role: 'ai',
-                    text: reply
-                }
-            ]);
-        } catch (err) {
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: Date.now() + 1,
-                    role: 'ai',
-                    text: "Sorry, I'm having trouble connecting right now."
-                }
-            ]);
-        } finally {
-            setIsTyping(false);
-        }
+        
+        // The backend automatically injects the user's most recent scans 
+        // into the AI's context, but for brand-new unsaved scans, we pass it explicitly.
+        await sendMessage(currentQuery, undefined, { cropName, diseaseName });
     };
 
     return (
@@ -163,15 +137,15 @@ const CropAssistant: React.FC<AssistantProps> = ({ diseaseName, cropName }) => {
                     >
                         {/* Chat Area */}
                         <div className="h-[350px] overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                            {messages.map((msg) => (
-                                <div key={msg.id} className={cn("flex", msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+                            {messages.map((msg, idx) => (
+                                <div key={idx} className={cn("flex", msg.role === 'user' ? 'justify-end' : 'justify-start')}>
                                     <div className={cn(
                                         "max-w-[85%] p-4 rounded-2xl text-[14px] leading-relaxed shadow-sm",
                                         msg.role === 'user'
                                             ? 'bg-green-600 text-white rounded-br-none font-medium'
                                             : 'bg-[#2a302c] text-gray-200 rounded-bl-none border border-white/5'
                                     )}>
-                                        {msg.text}
+                                        {msg.content}
                                     </div>
                                 </div>
                             ))}

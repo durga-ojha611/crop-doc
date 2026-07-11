@@ -1,7 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { db, storage } from '@/lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface PendingScan {
@@ -10,10 +7,14 @@ interface PendingScan {
   diseaseName: string;
   cropName: string;
   confidence: number;
+  plotId?: string;
+  diagnosisCandidates?: any[];
+  treatmentPlan?: any[];
   createdAt: string;
 }
 
 const PENDING_SCANS_KEY = 'crop-doc-pending-scans';
+const API_URL = 'http://localhost:5001/api';
 
 export const useOfflineSync = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -21,7 +22,6 @@ export const useOfflineSync = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const { user } = useAuth();
 
-  // Load pending scans from localStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem(PENDING_SCANS_KEY);
     if (stored) {
@@ -33,33 +33,21 @@ export const useOfflineSync = () => {
     }
   }, []);
 
-  // Save pending scans to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem(PENDING_SCANS_KEY, JSON.stringify(pendingScans));
   }, [pendingScans]);
 
-  // Monitor online/offline status
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      console.log('Back online - ready to sync');
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
-      console.log('Gone offline - scans will be saved locally');
-    };
-
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  // Add a scan to pending queue (for offline storage)
   const addPendingScan = useCallback((scan: Omit<PendingScan, 'id' | 'createdAt'>) => {
     const newScan: PendingScan = {
       ...scan,
@@ -70,18 +58,15 @@ export const useOfflineSync = () => {
     return newScan.id;
   }, []);
 
-  // Remove a scan from pending queue
   const removePendingScan = useCallback((id: string) => {
     setPendingScans(prev => prev.filter(scan => scan.id !== id));
   }, []);
 
-  // Convert data URL to blob for upload
   const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
     const response = await fetch(dataUrl);
     return response.blob();
   };
 
-  // Sync all pending scans to Firebase
   const syncPendingScans = useCallback(async () => {
     if (!user || !isOnline || pendingScans.length === 0 || isSyncing) {
       return { synced: 0, failed: 0 };
@@ -90,28 +75,56 @@ export const useOfflineSync = () => {
     setIsSyncing(true);
     let synced = 0;
     let failed = 0;
+    const token = localStorage.getItem('token');
 
     for (const scan of pendingScans) {
       try {
-        // Upload image to storage
         const blob = await dataUrlToBlob(scan.imageDataUrl);
-        const fileName = `${user.uid}/${Date.now()}-${scan.id}.jpg`;
-        const storageRef = ref(storage, `scan-images/${fileName}`);
+        
+        // 1. Get pre-signed URL
+        const uploadUrlRes = await fetch(`${API_URL}/scans/upload-url`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ fileType: blob.type || 'image/jpeg' })
+        });
+        
+        if (!uploadUrlRes.ok) throw new Error('Failed to get upload URL');
+        const { uploadUrl, key } = await uploadUrlRes.json();
 
-        await uploadBytes(storageRef, blob);
-        const publicUrl = await getDownloadURL(storageRef);
+        // 2. Upload directly to S3
+        const s3UploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': blob.type || 'image/jpeg' },
+          body: blob,
+        });
 
-        // Save scan to database
-        await addDoc(collection(db, 'scans'), {
-          user_id: user.uid,
-          image_url: publicUrl,
+        if (!s3UploadRes.ok) throw new Error('Failed to upload to S3');
+
+        // 3. Confirm with backend
+        const scanPayload = {
+          imageKey: key,
           disease_detected: scan.diseaseName,
           crop_name: scan.cropName,
           confidence_score: scan.confidence,
-          created_at: scan.createdAt,
+          plotId: scan.plotId,
+          diagnosisCandidates: scan.diagnosisCandidates,
+          treatmentPlan: scan.treatmentPlan
+        };
+
+        const res = await fetch(`${API_URL}/scans`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(scanPayload),
         });
 
-        // Remove from pending queue on success
+        if (!res.ok) throw new Error('Sync failed');
+
         removePendingScan(scan.id);
         synced++;
       } catch (error) {
@@ -124,12 +137,11 @@ export const useOfflineSync = () => {
     return { synced, failed };
   }, [user, isOnline, pendingScans, isSyncing, removePendingScan]);
 
-  // Auto-sync when coming back online
   useEffect(() => {
     if (isOnline && user && pendingScans.length > 0) {
       const timer = setTimeout(() => {
         syncPendingScans();
-      }, 2000); // Wait 2 seconds after coming online
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [isOnline, user, pendingScans.length, syncPendingScans]);

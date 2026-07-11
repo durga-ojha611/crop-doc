@@ -32,7 +32,7 @@ const CommentSection = ({ comments, isLoading, onAddComment, onDeleteComment, is
     if (!user) return false;
 
     // 1. Check if I am the comment author (ID match - Most Secure)
-    if (user.uid === comment.user_id) return true;
+    if (user.id === comment.user_id) return true;
 
     // 2. Check if I am the comment author (Name match - Fallback for reset accounts)
     // We strictly filter out generic names to avoid name collisions

@@ -11,6 +11,19 @@ const LANGUAGE_VOICE_MAP: Record<Language, string[]> = {
   mr: ['mr-IN', 'mr'],
 };
 
+const PREMIUM_FEMALE_VOICES = [
+  'Google UK English Female',
+  'Google US English', // frequently female by default
+  'Samantha', // macOS / iOS
+  'Victoria', // macOS
+  'Karen', // macOS
+  'Tessa', // macOS
+  'Microsoft Zira', // Windows
+  'Microsoft Hazel', // Windows
+  'Microsoft Zira Desktop', // Windows
+  'Microsoft Hazel Desktop' // Windows
+];
+
 interface UseTextToSpeechOptions {
   language?: Language;
   rate?: number;
@@ -18,7 +31,7 @@ interface UseTextToSpeechOptions {
 }
 
 export const useTextToSpeech = (options: UseTextToSpeechOptions = {}) => {
-  const { language = 'en', rate = 0.9, pitch = 1 } = options;
+  const { language = 'en', rate = 0.95, pitch = 1.1 } = options;
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
@@ -43,13 +56,33 @@ export const useTextToSpeech = (options: UseTextToSpeechOptions = {}) => {
       const langCodes = LANGUAGE_VOICE_MAP[language] || ['en'];
       let bestVoice: SpeechSynthesisVoice | null = null;
       
+      // 1. Try premium female voices first
       for (const langCode of langCodes) {
-        const voice = voices.find(v => 
-          v.lang.toLowerCase().startsWith(langCode.toLowerCase())
-        );
-        if (voice) {
-          bestVoice = voice;
-          break;
+        bestVoice = voices.find(v => 
+          v.lang.toLowerCase().startsWith(langCode.toLowerCase()) && 
+          PREMIUM_FEMALE_VOICES.some(name => v.name.includes(name))
+        ) || null;
+        if (bestVoice) break;
+      }
+
+      // 2. Fallback to any voice with "female" in the name
+      if (!bestVoice) {
+        for (const langCode of langCodes) {
+          bestVoice = voices.find(v => 
+            v.lang.toLowerCase().startsWith(langCode.toLowerCase()) && 
+            v.name.toLowerCase().includes('female')
+          ) || null;
+          if (bestVoice) break;
+        }
+      }
+
+      // 3. Fallback to any available voice for the language
+      if (!bestVoice) {
+        for (const langCode of langCodes) {
+          bestVoice = voices.find(v => 
+            v.lang.toLowerCase().startsWith(langCode.toLowerCase())
+          ) || null;
+          if (bestVoice) break;
         }
       }
       

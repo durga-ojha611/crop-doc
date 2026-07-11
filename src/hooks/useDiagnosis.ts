@@ -53,8 +53,6 @@ export const useDiagnosis = (): UseDiagnosisReturn => {
     } else {
       // MODE 2: TensorFlow.js (Offline/Device)
       try {
-        let topPrediction: { className: PlantDiseaseClass; confidence: number };
-
         if (!isModelReady()) {
           console.log('Model not ready, attempting to load...');
           await loadModel();
@@ -63,7 +61,7 @@ export const useDiagnosis = (): UseDiagnosisReturn => {
         // Use real TensorFlow.js model inference
         console.log('Running TensorFlow.js inference...');
         const predictions = await predictDisease(imageDataUrl, 3);
-        topPrediction = predictions[0];
+        const topPrediction = predictions[0];
         console.log('Predictions:', predictions);
 
         // Confidence Threshold Check

@@ -1,7 +1,10 @@
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { Leaf, Globe } from 'lucide-react';
+import { Leaf, Menu } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Header = () => {
+  const navigate = useNavigate();
+
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border px-4 py-3 shadow-sm transition-all duration-300">
       <div className="flex items-center justify-between">
@@ -18,12 +21,12 @@ const Header = () => {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          {/* Language Toggle - simplified for now */}
           <button 
+            onClick={() => navigate('/menu')}
             className="touch-target flex items-center justify-center w-9 h-9 rounded-full bg-secondary/20 hover:bg-secondary/30 text-secondary-foreground transition-all duration-200"
-            aria-label="Change language"
+            aria-label="App Menu"
           >
-            <Globe className="w-4 h-4" />
+            <Menu className="w-4 h-4" />
           </button>
         </div>
       </div>

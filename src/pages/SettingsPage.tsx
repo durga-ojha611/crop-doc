@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useRef } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { ArrowLeft, Save, Loader2, Globe, Mail, CheckCircle, AlertCircle, Lock, Link2, Unlink, MapPin } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Globe, Mail, CheckCircle, AlertCircle, Lock, Link2, Unlink, MapPin, User, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,9 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage, Language } from '@/contexts/LanguageContext';
-import { db, auth } from '@/lib/firebase';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { updateProfile } from 'firebase/auth';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
@@ -23,7 +21,7 @@ interface ProfileData {
 
 const SettingsPage = () => {
   const navigate = useNavigate();
-  const { user, isLoading: authLoading, isEmailVerified, updateEmail, updatePassword, linkedProviders, linkProvider, unlinkProvider } = useAuth();
+  const { user, isLoading: authLoading, isEmailVerified, updateEmail, updatePassword, linkedProviders, linkProvider, unlinkProvider, updateProfile, updateAvatar } = useAuth();
   const { language, setLanguage, t, languages } = useLanguage();
   const [profile, setProfile] = useState<ProfileData>({
     full_name: '',
@@ -40,6 +38,23 @@ const SettingsPage = () => {
   const [isChangingEmail, setIsChangingEmail] = useState(false);
   const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      setProfile({
+        full_name: user?.full_name || '',
+        phone: user?.phone || '',
+        location_district: user?.location_district || '',
+      });
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      toast.error(t('failedToLoad'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, t]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -51,52 +66,27 @@ const SettingsPage = () => {
       fetchProfile();
       setNewEmail(user.email || '');
     }
-  }, [user, authLoading, navigate]);
-
-  const fetchProfile = async () => {
-    try {
-      const docRef = doc(db, 'profiles', user!.uid);
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setProfile({
-          full_name: data.full_name || '',
-          phone: data.phone || '',
-          location_district: data.location_district || '',
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-      toast.error(t('failedToLoad'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [user, authLoading, navigate, fetchProfile]);
 
   const handleSave = async () => {
     if (!user) return;
 
     setIsSaving(true);
     try {
-      const docRef = doc(db, 'profiles', user.uid);
-      await setDoc(docRef, {
-        full_name: profile.full_name || null,
-        phone: profile.phone || null,
-        location_district: profile.location_district || null,
-        user_id: user.uid // Ensure user_id is stored
-      }, { merge: true });
+      const { error } = await updateProfile({
+        full_name: profile.full_name,
+        phone: profile.phone,
+        location_district: profile.location_district,
+      });
 
-      // Update Firebase Auth Profile for immediate UI updates
-      if (profile.full_name && profile.full_name !== user.displayName) {
-        await updateProfile(user, { displayName: profile.full_name });
-      }
+      if (error) throw error;
 
-      toast.success(t('profileUpdated'));
-      navigate('/profile');
-    } catch (error: any) {
+      toast.success(t('profileUpdated') || 'Profile updated successfully');
+      // No need to navigate away, users might want to change other settings
+    } catch (error: unknown) {
       console.error('Error updating profile:', error);
-      toast.error(error.message || t('failedToUpdate'));
+      const errorMessage = error instanceof Error ? error.message : t('failedToUpdate');
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -159,9 +149,8 @@ const SettingsPage = () => {
   };
 
   // Check if user signed in with OAuth
-  // Firebase provider data structure is slightly different
-  const isOAuthUser = user?.providerData.some(p => p.providerId !== 'password');
-  const isGoogleLinked = linkedProviders.includes('google.com');
+  const isOAuthUser = user?.app_metadata?.providers?.some((p: string) => p !== 'email');
+  const isGoogleLinked = linkedProviders.includes('google');
   // const hasEmailIdentity = linkedProviders.includes('password');
   const canUnlinkGoogle = isGoogleLinked && linkedProviders.length > 1;
 
@@ -256,6 +245,29 @@ const SettingsPage = () => {
     );
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const { error } = await updateAvatar(file);
+      if (error) throw error;
+      toast.success('Profile picture updated successfully');
+    } catch (error: unknown) {
+      console.error('Error uploading avatar:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile picture';
+      toast.error(errorMessage);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   if (authLoading || isLoading) {
     return (
       <AppLayout>
@@ -286,6 +298,50 @@ const SettingsPage = () => {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
+          {/* Avatar Section */}
+          <div className="flex flex-col items-center justify-center p-6 bg-card rounded-2xl border border-border shadow-sm">
+            <div className="relative group mb-4">
+              <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center border-4 border-background shadow-xl overflow-hidden relative">
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-12 h-12 text-primary" />
+                )}
+                
+                {/* Upload overlay */}
+                <div 
+                  className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {isUploadingAvatar ? (
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  ) : (
+                    <Camera className="w-6 h-6 text-white" />
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleAvatarUpload} 
+              accept="image/*" 
+              className="hidden" 
+            />
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingAvatar}
+            >
+              {isUploadingAvatar ? 'Uploading...' : 'Change Profile Picture'}
+            </Button>
+          </div>
+
+          <Separator />
+
           {/* Email Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">

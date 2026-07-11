@@ -33,7 +33,7 @@ const PostCard = ({ post, onLike, onDelete, onEdit, isDeleting }: PostCardProps)
 
   const authorName = post.author_name || 'Anonymous Farmer';
   const initials = authorName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-  const isAuthor = user?.uid === post.user_id;
+  const isAuthor = user?.id === post.user_id;
 
   return (
     <>

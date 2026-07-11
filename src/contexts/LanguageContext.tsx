@@ -1,9 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-export type Language = 'en' | 'hi' | 'hinglish' | 'ta' | 'te' | 'kn' | 'mr';
+export type Language = 'en' | 'hi' | 'ta' | 'te' | 'kn' | 'mr';
 
 interface LanguageOption {
   code: Language;
@@ -14,10 +12,8 @@ interface LanguageOption {
 export const languages: LanguageOption[] = [
   { code: 'en', name: 'English', nativeName: 'English' },
   { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
-  { code: 'hinglish', name: 'Hinglish', nativeName: 'Hinglish' },
   { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
   { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
-  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
   { code: 'mr', name: 'Marathi', nativeName: 'मराठी' },
 ];
 
@@ -95,7 +91,6 @@ const enTranslations = {
 // Translation strings
 const translations: Record<Language, Record<string, string>> = {
   en: enTranslations,
-  hinglish: enTranslations,
   hi: {
     home: 'होम',
     scan: 'स्कैन',
@@ -413,45 +408,16 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
   // Load language preference from profile or localStorage
   useEffect(() => {
-    const loadLanguage = async () => {
-      if (user) {
-        try {
-          const docRef = doc(db, 'profiles', user.uid);
-          const docSnap = await getDoc(docRef);
-
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            if (data?.language_pref && languages.some(l => l.code === data.language_pref)) {
-              setLanguageState(data.language_pref as Language);
-              return;
-            }
-          }
-        } catch (e) {
-          console.error("Failed to load language pref", e);
-        }
-      }
-
-      // Fallback to local storage
-      const stored = localStorage.getItem('language_pref');
-      if (stored && languages.some(l => l.code === stored)) {
-        setLanguageState(stored as Language);
-      }
-    };
-    loadLanguage();
+    const stored = localStorage.getItem('language_pref');
+    if (stored && languages.some(l => l.code === stored)) {
+      setLanguageState(stored as Language);
+    }
   }, [user]);
 
   const setLanguage = async (lang: Language) => {
     setLanguageState(lang);
     localStorage.setItem('language_pref', lang);
-
-    if (user) {
-      try {
-        const docRef = doc(db, 'profiles', user.uid);
-        await setDoc(docRef, { language_pref: lang }, { merge: true });
-      } catch (e) {
-        console.error("Failed to save language pref", e);
-      }
-    }
+    // If user is logged in, you can save language pref to backend API here
   };
 
   const t = (key: string): string => {

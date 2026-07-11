@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import CameraView from '@/components/scanner/CameraView';
 import AnalyzingView from '@/components/scanner/AnalyzingView';
@@ -9,9 +9,10 @@ import { usePlantModel } from '@/hooks/usePlantModel';
 import { useScans } from '@/hooks/useScans';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlots } from '@/hooks/usePlots';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, Download, Cloud, WifiOff, Sparkles, Loader2, CloudSun, Thermometer } from 'lucide-react';
+import { AlertCircle, Download, Cloud, WifiOff, Sparkles, Loader2, CloudSun, Thermometer, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useWeather } from '@/hooks/useWeather';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -29,6 +30,14 @@ const ScanPage = () => {
   const { isOnline, addPendingScan } = useOfflineSync();
   const { user } = useAuth();
   const { weather } = useWeather();
+  const { plots, fetchPlots } = usePlots();
+  const [selectedPlotId, setSelectedPlotId] = useState<string>('');
+
+  useEffect(() => {
+    if (user && scanState === 'result') {
+      fetchPlots();
+    }
+  }, [user, scanState]);
 
   const handleCapture = async (imageDataUrl: string) => {
     setCapturedImage(imageDataUrl);
@@ -58,6 +67,9 @@ const ScanPage = () => {
           diseaseName: result.diseaseName,
           cropName: result.crop,
           confidence: result.confidence,
+          plotId: selectedPlotId || undefined,
+          diagnosisCandidates: result.diagnosisCandidates,
+          treatmentPlan: result.treatmentPlan,
         });
         toast.success('Scan saved locally - will sync when online');
         return;
@@ -69,7 +81,10 @@ const ScanPage = () => {
           imageUrl,
           result.diseaseName,
           result.crop,
-          result.confidence
+          result.confidence,
+          selectedPlotId || undefined,
+          result.diagnosisCandidates,
+          result.treatmentPlan
         );
         // Toast is handled in useScans now
       }
@@ -220,8 +235,24 @@ const ScanPage = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="px-6 pb-24 safe-area-bottom"
+                  className="px-6 pb-24 safe-area-bottom space-y-4"
                 >
+                  {plots.length > 0 && (
+                    <div className="bg-card p-4 rounded-xl border border-border flex items-center gap-3">
+                      <MapPin className="w-5 h-5 text-muted-foreground" />
+                      <select 
+                        className="flex-1 bg-transparent border-none text-sm font-medium focus:ring-0 text-foreground"
+                        value={selectedPlotId}
+                        onChange={(e) => setSelectedPlotId(e.target.value)}
+                      >
+                        <option value="">(Optional) Select a field</option>
+                        {plots.map(p => (
+                          <option key={p._id} value={p._id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <Button
                     variant="default"
                     className="w-full h-12 rounded-xl text-base font-semibold shadow-lg shadow-primary/20"

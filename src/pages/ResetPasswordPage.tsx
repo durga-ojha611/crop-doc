@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Leaf, Lock, ArrowLeft, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
-  const { updatePassword, session } = useAuth();
+  const { token } = useParams<{ token: string }>();
+  const { confirmPasswordReset } = useAuth();
   const { toast } = useToast();
   
   const [isLoading, setIsLoading] = useState(false);
@@ -24,22 +25,16 @@ const ResetPasswordPage = () => {
   });
 
   useEffect(() => {
-    // Check if user came from a password reset email
-    if (!session) {
-      // Give some time for the session to be established from the URL hash
-      const timeout = setTimeout(() => {
-        if (!session) {
-          toast({
-            title: 'Invalid reset link',
-            description: 'Please request a new password reset link.',
-            variant: 'destructive',
-          });
-          navigate('/auth');
-        }
-      }, 2000);
-      return () => clearTimeout(timeout);
+    // If no token is provided in URL, redirect
+    if (!token) {
+      toast({
+        title: 'Invalid reset link',
+        description: 'Please request a new password reset link.',
+        variant: 'destructive',
+      });
+      navigate('/auth');
     }
-  }, [session, navigate, toast]);
+  }, [token, navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +60,7 @@ const ResetPasswordPage = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await updatePassword(formData.password);
+      const { error } = await confirmPasswordReset(token!, formData.password);
       if (error) {
         toast({
           title: 'Password reset failed',

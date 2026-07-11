@@ -1,4 +1,4 @@
-import { Home, MessageCircle, User, Camera, Calendar } from 'lucide-react';
+import { Home, MessageCircle, User, Camera, Calendar, MapPin } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 

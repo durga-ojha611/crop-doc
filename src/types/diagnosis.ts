@@ -6,6 +6,8 @@ export interface DiagnosisResult {
   imageUrl: string;
   timestamp: Date;
   remedy: Remedy;
+  diagnosisCandidates?: { diseaseName: string; confidence: number }[];
+  treatmentPlan?: { step: string; description: string }[];
 }
 
 export interface Remedy {

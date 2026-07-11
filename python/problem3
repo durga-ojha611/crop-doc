@@ -1,0 +1,24 @@
+import os
+
+def print_directory_contents(path):
+    try:
+        # Get the list of all files and directories
+        contents = os.listdir(img)
+        
+        print(f"Contents of the directory '{path}':")
+        print("-" * 30)
+        
+        # Loop through the list and print each item
+        for item in contents:
+            print(item)
+            
+    except FileNotFoundError:
+        print(f"Error: The directory '{path}' does not exist.")
+    except PermissionError:
+        print(f"Error: You don't have permission to view '{path}'.")
+
+# You can change '.' to any folder path on your computer
+# (e.g., '/Users/Name/Documents' for Mac or 'C:\\Users\\Name\\Documents' for Windows)
+directory_to_search = '.' 
+
+print_directory_contents(directory_to_search)

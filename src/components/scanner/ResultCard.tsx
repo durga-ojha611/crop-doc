@@ -18,7 +18,9 @@ import {
   ShieldCheck,
   Cpu,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  ClipboardList,
+  Crosshair
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
@@ -294,7 +296,7 @@ const ResultCard = ({ result, onScanAgain, onLanguageChange }: ResultCardProps) 
             </div>
 
             {/* Progress Bar */}
-            <div className="h-4 bg-muted/50 rounded-full overflow-hidden p-1">
+            <div className="h-4 bg-muted/50 rounded-full overflow-hidden p-1 mb-3">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${confidencePercent}%` }}
@@ -307,6 +309,21 @@ const ResultCard = ({ result, onScanAgain, onLanguageChange }: ResultCardProps) 
                 )}
               />
             </div>
+
+            {/* Other Candidates (if unsure) */}
+            {result.diagnosisCandidates && result.diagnosisCandidates.length > 0 && (
+              <div className="mt-2 p-3 bg-muted/30 rounded-xl border border-border/50">
+                <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Other Possibilities</p>
+                <div className="space-y-2">
+                  {result.diagnosisCandidates.map((candidate, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{candidate.diseaseName}</span>
+                      <span className="text-xs text-muted-foreground font-bold">{Math.round(candidate.confidence * 100)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -316,27 +333,62 @@ const ResultCard = ({ result, onScanAgain, onLanguageChange }: ResultCardProps) 
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6 }}
         >
-          <Tabs defaultValue="chemical" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 h-16 p-1.5 bg-muted/50 rounded-2xl backdrop-blur-sm">
+          <Tabs defaultValue="plan" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 h-16 p-1.5 bg-muted/50 rounded-2xl backdrop-blur-sm">
+              <TabsTrigger
+                value="plan"
+                className="rounded-xl h-full data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:ring-1 ring-black/5"
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <ClipboardList className="w-4 h-4" />
+                  <span className="font-bold text-[10px]">Action Plan</span>
+                </div>
+              </TabsTrigger>
               <TabsTrigger
                 value="chemical"
                 className="rounded-xl h-full data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:ring-1 ring-black/5"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-center gap-1">
                   <FlaskConical className="w-4 h-4" />
-                  <span className="font-bold text-sm">{t('chemical')}</span>
+                  <span className="font-bold text-[10px]">{t('chemical')}</span>
                 </div>
               </TabsTrigger>
               <TabsTrigger
                 value="organic"
                 className="rounded-xl h-full data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:ring-1 ring-black/5"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-center gap-1">
                   <Leaf className="w-4 h-4" />
-                  <span className="font-bold text-sm">{t('natural')}</span>
+                  <span className="font-bold text-[10px]">{t('natural')}</span>
                 </div>
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="plan" className="mt-4">
+              <div className="bg-card rounded-[2rem] p-6 border border-border shadow-sm min-h-[140px] flex flex-col justify-center relative">
+                <h4 className="font-bold text-foreground mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary" />
+                  Step-by-Step Treatment
+                </h4>
+                {result.treatmentPlan && result.treatmentPlan.length > 0 ? (
+                  <div className="space-y-4">
+                    {result.treatmentPlan.map((step, idx) => (
+                      <div key={idx} className="flex gap-4 items-start">
+                        <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+                          {idx + 1}
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm mb-1">{step.step}</p>
+                          <p className="text-sm text-muted-foreground">{step.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No specific treatment plan provided.</p>
+                )}
+              </div>
+            </TabsContent>
 
             <TabsContent value="chemical" className="mt-4">
               <div className="bg-card rounded-[2rem] p-6 border border-border shadow-sm min-h-[140px] flex flex-col justify-center relative">

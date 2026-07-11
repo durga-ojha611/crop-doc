@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { GoogleLogin } from '@react-oauth/google';
 
 const GoogleIcon = () => (
   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -35,12 +36,11 @@ type AuthMode = 'signin' | 'signup' | 'forgot';
 const AuthPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signUp, signInWithProvider, resetPassword, user } = useAuth();
+  const { signIn, signUp, signInWithProvider, resetPassword, user, loginWithGoogle } = useAuth();
   const { toast } = useToast();
 
   const [mode, setMode] = useState<AuthMode>('signin');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
 
@@ -62,18 +62,17 @@ const AuthPage = () => {
     fullName: '',
   });
 
-  const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true);
-    const { error } = await signInWithProvider('google');
-    if (error) {
-      toast({
-        title: 'Google sign in failed',
-        description: error.message,
-        variant: 'destructive',
-      });
-      setIsGoogleLoading(false);
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    if (credentialResponse.credential) {
+      const { error } = await loginWithGoogle(credentialResponse.credential);
+      if (error) {
+        toast({
+          title: 'Google sign in failed',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     }
-    // Success will be handled by useEffect
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -313,7 +312,7 @@ const AuthPage = () => {
           <Button
             type="submit"
             className="w-full h-12 text-base font-semibold"
-            disabled={isLoading || isGoogleLoading}
+            disabled={isLoading}
           >
             {isLoading
               ? 'Please wait...'
@@ -339,22 +338,23 @@ const AuthPage = () => {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.15 }}
+              className="flex justify-center"
             >
-              <Button
-                variant="outline"
-                className="w-full h-12 text-base font-medium"
-                onClick={handleGoogleSignIn}
-                disabled={isLoading || isGoogleLoading}
-              >
-                {isGoogleLoading ? (
-                  'Connecting...'
-                ) : (
-                  <>
-                    <GoogleIcon />
-                    <span className="ml-2">Continue with Google</span>
-                  </>
-                )}
-              </Button>
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  toast({
+                    title: 'Google Sign-In failed',
+                    description: 'Could not connect to Google.',
+                    variant: 'destructive',
+                  });
+                }}
+                theme="filled_black"
+                shape="rectangular"
+                size="large"
+                text={mode === 'signin' ? 'signin_with' : 'signup_with'}
+                width="100%"
+              />
             </motion.div>
           </>
         )}
