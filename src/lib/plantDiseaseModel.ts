@@ -175,12 +175,11 @@ export const predictDisease = async (
       predictions = (model as tf.LayersModel).predict(inputTensor) as tf.Tensor;
     }
 
-    // YOLOv8 classification output is usually logits, need softmax
-    const softmaxed = predictions.softmax();
-    const probabilities = await softmaxed.data();
+    // This model already outputs probabilities (it has a softmax layer built-in).
+    // Running softmax again squashes the confidences to ~0.06 (e^1 / (e^1 + 37*e^0)).
+    const probabilities = await predictions.data();
 
     predictions.dispose();
-    softmaxed.dispose();
 
     const results = Array.from(probabilities)
       .map((confidence, index) => ({
