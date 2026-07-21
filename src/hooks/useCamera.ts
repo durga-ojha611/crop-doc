@@ -43,9 +43,11 @@ export const useCamera = (): UseCameraReturn => {
         streamRef.current = stream;
         setIsStreaming(true);
       }
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to access camera";
+    } catch (err: any) {
+      let message = err instanceof Error ? err.message : "Failed to access camera";
+      if (err.name === 'NotAllowedError' || err.message?.toLowerCase().includes('permission dismissed') || err.message?.toLowerCase().includes('permission denied')) {
+        message = "Camera permission was denied or dismissed. Please allow camera access in your browser settings, or upload a photo manually.";
+      }
       setError(message);
       console.error("Camera error:", err);
     }

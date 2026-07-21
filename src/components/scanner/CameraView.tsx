@@ -291,16 +291,40 @@ const CameraView = ({ onCapture, onFileUpload }: CameraViewProps) => {
 
       {/* Error state */}
       {error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/95 p-6">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/95 p-6 z-50">
           <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
             <XCircle className="w-10 h-10 text-destructive" />
           </div>
           <p className="text-center text-foreground font-semibold text-lg mb-2">Camera Access Denied</p>
           <p className="text-center text-muted-foreground text-sm mb-6 max-w-xs">{error}</p>
-          <Button onClick={startCamera} className="gap-2">
-            <SwitchCamera className="w-4 h-4" />
-            Try Again
-          </Button>
+          
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <Button onClick={startCamera} className="gap-2">
+              <SwitchCamera className="w-4 h-4" />
+              Try Again
+            </Button>
+            
+            {/* Fallback to file upload */}
+            <div className="relative my-2">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground font-medium">Or</span>
+              </div>
+            </div>
+            
+            <label className="flex items-center justify-center gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-4 py-2 rounded-md cursor-pointer transition-colors text-sm font-medium">
+              <ImageIcon className="w-4 h-4" />
+              Upload from Device
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+          </div>
         </div>
       )}
 
