@@ -14,7 +14,8 @@ export interface Plot {
   createdAt: string;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+let API_URL = import.meta.env.VITE_API_URL || '/api';
+if (API_URL && !API_URL.endsWith('/api') && API_URL !== '/api') API_URL += '/api';
 
 export const usePlots = () => {
   const [plots, setPlots] = useState<Plot[]>([]);
