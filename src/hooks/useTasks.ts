@@ -21,7 +21,7 @@ export interface Task {
 }
 
 const PENDING_COMPLETED_TASKS_KEY = 'crop-doc-pending-completed-tasks';
-const API_URL = 'http://localhost:5001/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);

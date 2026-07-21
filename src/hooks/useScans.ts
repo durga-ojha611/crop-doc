@@ -18,7 +18,7 @@ export interface Scan {
   plotId?: { _id: string, name: string, location?: string } | string;
 }
 
-const API_URL = 'http://localhost:5001/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const useScans = () => {
   const { user } = useAuth();
@@ -73,26 +73,34 @@ export const useScans = () => {
         body: JSON.stringify({ fileType: blob.type || 'image/jpeg' })
       });
       
-      if (!uploadUrlRes.ok) {
-        throw new Error('Failed to get upload URL. Ensure AWS S3 is configured.');
-      }
-      
-      const { uploadUrl, key } = await uploadUrlRes.json();
+      let key = undefined;
+      let fallbackImageUrl = undefined;
 
-      // 2. Upload directly to S3
-      const s3UploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': blob.type || 'image/jpeg' },
-        body: blob,
-      });
+      if (uploadUrlRes.ok) {
+        const { uploadUrl, key: uploadKey } = await uploadUrlRes.json();
 
-      if (!s3UploadRes.ok) {
-        throw new Error('Failed to upload image to S3');
+        // 2. Upload directly to S3
+        const s3UploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': blob.type || 'image/jpeg' },
+          body: blob,
+        });
+
+        if (s3UploadRes.ok) {
+          key = uploadKey;
+        } else {
+          console.warn('Failed to upload image to S3, falling back to base64.');
+          fallbackImageUrl = data.imageUrl;
+        }
+      } else {
+        console.warn('S3 upload URL generation failed. Ensure AWS S3 is configured. Falling back to base64 image.');
+        fallbackImageUrl = data.imageUrl;
       }
 
       // 3. Tell backend the upload is done, create the Scan record
       const scanPayload = {
         imageKey: key,
+        image_url: fallbackImageUrl,
         disease_detected: data.diseaseDetected,
         crop_name: data.cropName,
         confidence_score: data.confidenceScore,

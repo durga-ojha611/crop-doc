@@ -23,6 +23,7 @@ import MyFieldsPage from "./pages/MyFieldsPage";
 import PlotDetailPage from "./pages/PlotDetailPage";
 import MenuPage from "./pages/MenuPage";
 import InfoPage from "./pages/InfoPage";
+import AlertsPage from "./pages/AlertsPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
@@ -85,6 +86,11 @@ const App = () => (
                 </RequireAuth>
               } />
               <Route path="/info" element={<InfoPage />} />
+              <Route path="/alerts" element={
+                <RequireAuth>
+                  <AlertsPage />
+                </RequireAuth>
+              } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

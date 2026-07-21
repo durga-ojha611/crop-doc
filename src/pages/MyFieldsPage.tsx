@@ -4,17 +4,20 @@ import { usePlots } from '@/hooks/usePlots';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { MapPin, Plus, Sprout, ArrowRight } from 'lucide-react';
+import { MapPin, Plus, Sprout, ArrowRight, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MyFieldsPage = () => {
   const { user } = useAuth();
-  const { plots, fetchPlots, isLoading, createPlot } = usePlots();
+  const { plots, fetchPlots, isLoading, createPlot, deletePlot } = usePlots();
   const navigate = useNavigate();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newPlotName, setNewPlotName] = useState('');
   const [newPlotCrop, setNewPlotCrop] = useState('');
+  const [plotLocation, setPlotLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [plotToDelete, setPlotToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -25,10 +28,38 @@ const MyFieldsPage = () => {
   const handleAddPlot = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPlotName || !newPlotCrop) return;
-    await createPlot({ name: newPlotName, cropType: newPlotCrop });
+    await createPlot({ 
+      name: newPlotName, 
+      cropType: newPlotCrop,
+      location: plotLocation ? { ...plotLocation, label: 'GPS Location' } : undefined
+    });
     setIsAddOpen(false);
     setNewPlotName('');
     setNewPlotCrop('');
+    setPlotLocation(null);
+  };
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+    setIsGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setPlotLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+        setIsGettingLocation(false);
+        toast.success("Location captured successfully!");
+      },
+      (error) => {
+        setIsGettingLocation(false);
+        toast.error("Failed to get location: " + error.message);
+      },
+      { enableHighAccuracy: true }
+    );
   };
 
   if (!user) {
@@ -80,7 +111,20 @@ const MyFieldsPage = () => {
               className="w-full p-3 rounded-xl border border-input bg-background"
               required
             />
-            <div className="flex gap-3">
+            <Button 
+              type="button" 
+              variant={plotLocation ? "default" : "outline"}
+              className="w-full flex items-center gap-2"
+              onClick={handleGetLocation}
+              disabled={isGettingLocation}
+            >
+              <MapPin className="w-4 h-4" />
+              {isGettingLocation ? "Getting location..." : plotLocation ? "Location Captured ✓" : "Use my current location"}
+            </Button>
+            <p className="text-xs text-muted-foreground mt-1">
+              Adding location enables hyperlocal weather alerts like "rain expected in 2 hours".
+            </p>
+            <div className="flex gap-3 mt-2">
               <Button type="button" variant="outline" className="w-full" onClick={() => setIsAddOpen(false)}>Cancel</Button>
               <Button type="submit" className="w-full">Create</Button>
             </div>
@@ -116,6 +160,10 @@ const MyFieldsPage = () => {
                 >
                   <div 
                     onClick={() => navigate(`/plots/${plot._id}`)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setPlotToDelete(plot._id === plotToDelete ? null : plot._id);
+                    }}
                     className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden active:scale-[0.98] transition-transform cursor-pointer"
                   >
                     <div className="p-4 flex items-center justify-between">
@@ -128,7 +176,26 @@ const MyFieldsPage = () => {
                           <p className="text-sm text-muted-foreground">{plot.cropType}</p>
                         </div>
                       </div>
-                      <ArrowRight className="w-5 h-5 text-muted-foreground" />
+                      <div className="flex items-center gap-2">
+                        <AnimatePresence>
+                          {plotToDelete === plot._id && (
+                            <motion.button 
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deletePlot(plot._id);
+                              }}
+                              className="p-2 text-destructive hover:text-white hover:bg-destructive rounded-lg transition-colors"
+                              aria-label="Delete field"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </motion.button>
+                          )}
+                        </AnimatePresence>
+                        <ArrowRight className="w-5 h-5 text-muted-foreground" />
+                      </div>
                     </div>
                   </div>
                 </motion.div>

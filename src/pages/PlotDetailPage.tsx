@@ -6,9 +6,11 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Sprout, TrendingUp, TrendingDown, Camera, CheckCircle2, Clock, X, Pencil, Trash2 } from 'lucide-react';
 import { useFarmLogs } from '@/hooks/useFarmLogs';
+import { useAlerts } from '@/hooks/useAlerts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useRef } from 'react';
+import { AlertTriangle, CloudRain, Wind, ThermometerSnowflake, Bell } from 'lucide-react';
 
 const PlotDetailPage = () => {
   const { id } = useParams();
@@ -17,6 +19,8 @@ const PlotDetailPage = () => {
   const { plots, getTimeline, fetchPlots } = usePlots();
   const [timeline, setTimeline] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const { alerts, fetchAlerts, markAsRead } = useAlerts(id);
 
   const { createLog, updateLog, deleteLog } = useFarmLogs();
   const [isAddLogOpen, setIsAddLogOpen] = useState(false);
@@ -127,8 +131,9 @@ const PlotDetailPage = () => {
         console.error(err);
         setIsLoading(false);
       });
+      fetchAlerts();
     }
-  }, [user, id, fetchPlots, plots.length]);
+  }, [user, id, fetchPlots, plots.length, fetchAlerts]);
 
   if (!user || !plot) {
     return (
@@ -330,11 +335,50 @@ const PlotDetailPage = () => {
           )}
         </div>
 
-        {/* Alerts Placeholder */}
-        <div className="mt-8 bg-blue-500/10 border border-blue-500/20 p-5 rounded-2xl">
-          <h3 className="text-sm font-bold text-blue-600 mb-1">Enabling Plot-Specific Alerts</h3>
-          <p className="text-xs text-blue-600/80">Weather and pest alerts customized for this exact plot are currently active behind the scenes.</p>
-        </div>
+        {/* Alerts Section */}
+        {alerts && alerts.length > 0 && (
+          <div className="mt-8 mb-6">
+            <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" /> Active Alerts
+            </h2>
+            <div className="space-y-3">
+              {alerts.map(alert => (
+                <div 
+                  key={alert._id} 
+                  className={`p-4 rounded-xl border flex gap-3 ${
+                    alert.severity === 'critical' ? 'bg-destructive/10 border-destructive/20 text-destructive-foreground' : 
+                    alert.severity === 'warning' ? 'bg-orange-500/10 border-orange-500/20 text-orange-700' :
+                    'bg-blue-500/10 border-blue-500/20 text-blue-700'
+                  }`}
+                >
+                  <div className="mt-0.5 shrink-0">
+                    {alert.type === 'heavy_rain' ? <CloudRain className="w-5 h-5" /> :
+                     alert.type === 'frost' ? <ThermometerSnowflake className="w-5 h-5" /> :
+                     alert.type === 'high_wind' ? <Wind className="w-5 h-5" /> :
+                     <AlertTriangle className="w-5 h-5" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm capitalize">{alert.type.replace('_', ' ')}</p>
+                    <p className="text-sm mt-0.5">{alert.message}</p>
+                    <p className="text-xs mt-2 opacity-70">
+                      {new Date(alert.triggeredAt).toLocaleString()}
+                    </p>
+                  </div>
+                  {!alert.isRead && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => markAsRead(alert._id)}
+                      className="shrink-0 h-8 self-center"
+                    >
+                      Dismiss
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </AppLayout>
   );

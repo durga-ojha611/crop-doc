@@ -27,7 +27,7 @@ export interface ForumComment {
   author_name: string | null;
 }
 
-const API_URL = 'http://localhost:5001/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const useForum = () => {
   const { user } = useAuth();
